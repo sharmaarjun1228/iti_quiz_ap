@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .quiz-container {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .subject-select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .question-counter {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .question {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        .option {
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            padding: 10px;
+            text-align: left;
+            transition: background-color 0.3s;
+        }
+
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+
+        .option.selected {
+            background-color: #4CAF50;
+            color: #fff;
+        }
+
+        .option.correct {
+            background-color: #4CAF50;
+            color: #fff;
+        }
+
+        .option.incorrect {
+            background-color: #f44336;
+            color: #fff;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .nav-button {
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            padding: 10px 20px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .nav-button:hover {
+            background-color: #45a049;
+        }
+
+        .nav-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .score {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            font-style: bold;
+            color: #2b2929;
+        }
+
+        @media (max-width: 768px) {
+            .quiz-container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>Quiz App</h1>
+        <select id="subject-select" class="subject-select">
+            <option value="">Select a subject</option>
+        </select>
+        <div id="quiz" class="hidden">
+            <div id="question-counter" class="question-counter"></div>
+            <div id="question" class="question"></div>
+            <div id="options" class="options"></div>
+            <div id="result" class="result"></div>
+            <div class="navigation">
+                <button id="prev-button" class="nav-button">Previous</button>
+                <button id="next-button" class="nav-button">Next</button>
+            </div>
+            <div id="score" class="score"></div>
+        </div>
+    </div>
+    <footer>Made with ❤ by Arjun Sharma</footer>
+
+    <script>
+        let quizData = [];
+        let currentQuestion = 0;
+        let score = 0;
+        let currentSubject = '';
+        let userAnswers = [];
+
+        const subjectSelect = document.getElementById('subject-select');
+        const quizElement = document.getElementById('quiz');
+        const questionCounterElement = document.getElementById('question-counter');
+        const questionElement = document.getElementById('question');
+        const optionsElement = document.getElementById('options');
+        const resultElement = document.getElementById('result');
+        const scoreElement = document.getElementById('score');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+
+        async function fetchQuizData() {
+            try {
+                const response = await fetch('cleaned_quiz-data2.json');
+                quizData = await response.json();
+                initializeQuiz();
+            } catch (error) {
+                console.error('Error fetching quiz data:', error);
+            }
+        }
+
+        function initializeQuiz() {
+            const subjects = [...new Set(quizData.map(q => q.Subject))];
+            subjects.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject;
+                option.textContent = subject;
+                subjectSelect.appendChild(option);
+            });
+
+            subjectSelect.addEventListener('change', (e) => {
+                currentSubject = e.target.value;
+                if (currentSubject) {
+                    startQuiz();
+                } else {
+                    quizElement.classList.add('hidden');
+                }
+            });
+
+            prevButton.addEventListener('click', showPreviousQuestion);
+            nextButton.addEventListener('click', showNextQuestion);
+        }
+
+        function startQuiz() {
+            currentQuestion = 0;
+            score = 0;
+            userAnswers = [];
+            quizElement.classList.remove('hidden');
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const subjectQuestions = quizData.filter(q => q.Subject === currentSubject);
+            const question = subjectQuestions[currentQuestion];
+
+            questionCounterElement.textContent = `Question ${currentQuestion + 1} of ${subjectQuestions.length}`;
+            questionElement.textContent = question.Question;
+            optionsElement.innerHTML = '';
+            resultElement.textContent = '';
+
+            Object.entries(question.Options).forEach(([key, value]) => {
+                const button = document.createElement('button');
+                button.classList.add('option');
+                button.textContent = `${key}: ${value}`;
+                button.addEventListener('click', () => selectOption(key, question['Correct Answer']));
+                if (userAnswers[currentQuestion] === key) {
+                    button.classList.add(key === question['Correct Answer'] ? 'correct' : 'incorrect');
+                }
+                optionsElement.appendChild(button);
+            });
+
+            updateNavButtons();
+        }
+
+        function selectOption(selectedOption, correctAnswer) {
+            userAnswers[currentQuestion] = selectedOption;
+            const options = optionsElement.getElementsByClassName('option');
+            Array.from(options).forEach(option => {
+                option.classList.remove('selected', 'correct', 'incorrect');
+                if (option.textContent.startsWith(selectedOption)) {
+                    option.classList.add(selectedOption === correctAnswer ? 'correct' : 'incorrect');
+                }
+            });
+        }
+
+        function showPreviousQuestion() {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                showQuestion();
+            }
+        }
+
+        function showNextQuestion() {
+            const subjectQuestions = quizData.filter(q => q.Subject === currentSubject);
+            if (currentQuestion < subjectQuestions.length - 1) {
+                currentQuestion++;
+                showQuestion();
+            } else {
+                showFinalScore();
+            }
+        }
+
+        function updateNavButtons() {
+            const subjectQuestions = quizData.filter(q => q.Subject === currentSubject);
+            prevButton.disabled = currentQuestion === 0;
+            nextButton.textContent = currentQuestion === subjectQuestions.length - 1 ? 'Finish' : 'Next';
+        }
+
+        function showFinalScore() {
+            const subjectQuestions = quizData.filter(q => q.Subject === currentSubject);
+            score = userAnswers.reduce((acc, answer, index) => {
+                return acc + (answer === subjectQuestions[index]['Correct Answer'] ? 1 : 0);
+            }, 0);
+
+            questionCounterElement.textContent = '';
+            questionElement.textContent = 'Quiz Completed!';
+            optionsElement.innerHTML = '';
+            resultElement.textContent = '';
+            scoreElement.textContent = `Your score: ${score} / ${subjectQuestions.length}`;
+            prevButton.style.display = 'none';
+            nextButton.style.display = 'none';
+        }
+
+        fetchQuizData();
+    </script>
+</body>
+</html>
